@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>EkoTrack - Trends</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+
+body {
+    background: #081c15;
+    color: #e6f2ea;
+    font-family: Arial;
+    padding: 40px;
+}
+canvas {
+    margin-top: 40px;
+    background: #0f1a14;
+    padding: 20px;
+    border-radius: 10px;
+}
+select {
+    padding: 10px;
+    margin-bottom: 20px;
+}
+.stat-box {
+    margin-top:20px;
+}
+</style>
+</head>
+<body>
+
+<h1>📊 Carbon Trends</h1>
+<button onclick="window.location.href='./index.html'">
+    ⬅ Back
+</button>
+<select id="viewType" onchange="renderChart()">
+    <option value="daily">Daily</option>
+    <option value="weekly">Weekly</option>
+    <option value="monthly">Monthly</option>
+</select>
+
+<canvas id="carbonChart"></canvas>
+
+<div class="stat-box" id="stats"></div>
+
+<script>
+
+let entries = JSON.parse(localStorage.getItem("carbonEntries")) || [];
+
+function groupData(type) {
+    let grouped = {};
+
+    entries.forEach(entry => {
+        let date = new Date(entry.date);
+        let key;
+
+        if (type === "daily") {
+            key = date.toISOString().split("T")[0];
+        } 
+        else if (type === "weekly") {
+            let week = Math.ceil(date.getDate() / 7);
+            key = `${date.getFullYear()}-W${week}`;
+        } 
+        else {
+            key = `${date.getFullYear()}-${date.getMonth()+1}`;
+        }
+
+        grouped[key] = (grouped[key] || 0) + entry.emissions;
+    });
+
+    return grouped;
+}
+
+function renderChart() {
+    const type = document.getElementById("viewType").value;
+    const grouped = groupData(type);
+
+    const labels = Object.keys(grouped);
+    const values = Object.values(grouped);
+
+    new Chart(document.getElementById("carbonChart"), {
+        type: "bar",
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "Carbon Emissions (kg CO₂)",
+                data: values
+            }]
+        }
+    });
+
+    calculateStats();
+}
+
+function calculateStats() {
+    if (entries.length === 0) return;
+
+    let total = entries.reduce((sum,e)=>sum+e.emissions,0);
+    let totalDistance = entries.reduce((sum,e)=>sum+e.distance,0);
+
+    let longest = entries.reduce((max,e)=>e.distance>max.distance?e:max);
+
+    let modeCount = {};
+    entries.forEach(e=>{
+        modeCount[e.transport] = (modeCount[e.transport]||0)+1;
+    });
+
+    let mostUsed = Object.keys(modeCount).reduce((a,b)=>
+        modeCount[a]>modeCount[b]?a:b
+    );
+
+    document.getElementById("stats").innerHTML = `
+        <h3>📌 Insights</h3>
+        Total Emissions: <b>${total.toFixed(2)} kg CO₂</b><br>
+        Total Distance: <b>${totalDistance.toFixed(2)} km</b><br>
+        Longest Trip: <b>${longest.distance.toFixed(2)} km</b><br>
+        Most Used Mode: <b>${mostUsed}</b>
+    `;
+}
+
+renderChart();
+</script>
+
+</body>
+</html>
